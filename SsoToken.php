@@ -7,17 +7,19 @@ use RuntimeException;
 /**
  * base64url(json claims) . "." . base64url(HMAC-SHA256(secret, first part))
  *
- * Claims: email, exp (unix seconds), nonce, redirect (optional path).
+ * Claims: uid (Vito user id) or email, exp (unix seconds), nonce,
+ * redirect (optional path). Plugnom's API sends uid; email is for the
+ * test command.
  */
 class SsoToken
 {
     /** Longest a link may live, whatever exp the issuer chose. */
     public const MAX_TTL = 120;
 
-    public static function make(string $secret, string $email, ?string $redirect = null, int $ttl = 60): string
+    public static function make(string $secret, int|string $user, ?string $redirect = null, int $ttl = 60): string
     {
         $body = self::encode((string) json_encode(array_filter([
-            'email' => $email,
+            is_int($user) ? 'uid' : 'email' => $user,
             'exp' => time() + $ttl,
             'nonce' => bin2hex(random_bytes(16)),
             'redirect' => $redirect,
@@ -27,7 +29,7 @@ class SsoToken
     }
 
     /**
-     * @return array{email: string, exp: int, nonce: string, redirect?: string}
+     * @return array{uid?: int, email?: string, exp: int, nonce: string, redirect?: string}
      */
     public static function verify(string $secret, string $token): array
     {
@@ -42,7 +44,8 @@ class SsoToken
         }
 
         $claims = json_decode(self::decode($body), true);
-        if (! is_array($claims) || ! is_string($claims['email'] ?? null) || ! is_int($claims['exp'] ?? null) || ! is_string($claims['nonce'] ?? null)) {
+        $identifies = is_int($claims['uid'] ?? null) || is_string($claims['email'] ?? null);
+        if (! is_array($claims) || ! $identifies || ! is_int($claims['exp'] ?? null) || ! is_string($claims['nonce'] ?? null)) {
             throw new RuntimeException('bad claims');
         }
 

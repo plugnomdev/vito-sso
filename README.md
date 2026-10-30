@@ -1,15 +1,15 @@
 # Plugnom SSO for VitoDeploy
 
-Lets Plugnom customers open their Vito account from the Plugnom dashboard
-without a separate password. Plugnom's API signs a short-lived link; this
-plugin checks it and signs the customer in.
+Connects a Vito instance to Plugnom: customers open their Vito account from
+the Plugnom dashboard without a separate password, and Plugnom's API creates
+their account and attaches the VPSs they order.
 
 ## How a link works
 
 `https://<vito>/plugnom/sso?token=<token>`, where the token is
 `base64url(claims) . "." . base64url(HMAC-SHA256(secret, base64url(claims)))`
-and the claims are `email`, `exp` (unix seconds), `nonce` and an optional
-`redirect` path.
+and the claims are `uid` (Vito user id; `email` is accepted for testing),
+`exp` (unix seconds), `nonce` and an optional `redirect` path.
 
 A link is refused when:
 
@@ -19,6 +19,22 @@ A link is refused when:
 - the redirect isn't a plain path on this Vito instance;
 - the email isn't a Vito user, or is an instance **admin** — admins never
   sign in through a link.
+
+## API (server-to-server, Plugnom only)
+
+Every request carries `X-Plugnom-Timestamp` (unix seconds) and
+`X-Plugnom-Signature` = hex `HMAC-SHA256(secret, "{timestamp}.{METHOD}.{request URI}.{raw body}")`,
+and is refused if unsigned, wrongly signed or more than 5 minutes old.
+
+| Method | Path | Does |
+|---|---|---|
+| GET | `/plugnom/api/ssh-key` | Vito's public SSH key, for new VPSs |
+| POST | `/plugnom/api/accounts` `{email, name}` | Finds or creates the customer (never an admin); returns `userId`, `projectId` |
+| POST | `/plugnom/api/servers` `{userId, name, ip, port?, os, services?}` | Attaches a VPS to the customer's project and starts installing |
+| GET | `/plugnom/api/servers/{id}?userId=` | Install status and progress |
+| DELETE | `/plugnom/api/servers/{id}?userId=` | Removes the server from Vito (the VPS is untouched) |
+
+`os` is one of `ubuntu_22`, `ubuntu_24`, `ubuntu_26`.
 
 ## Install
 

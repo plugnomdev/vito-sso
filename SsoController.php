@@ -28,7 +28,9 @@ class SsoController
         }
 
         /** @var ?User $user */
-        $user = User::query()->where('email', $claims['email'])->first();
+        $user = isset($claims['uid'])
+            ? User::query()->find($claims['uid'])
+            : User::query()->where('email', $claims['email'])->first();
 
         // Never sign anyone in as an instance admin through a link.
         if (! $user || $user->is_admin) {

@@ -55,6 +55,17 @@ environment — never commit it:
 cd /home/vito/vito && sudo -u vito php artisan plugnom:sso-secret
 ```
 
+## Update
+
+The folder belongs to the `vito` user, so pull as that user (git refuses as
+root), rebuild Vito's caches and restart PHP so the new code is served:
+
+```sh
+sudo -u vito git -C /home/vito/vito/app/Vito/Plugins/Plugnomdev/VitoSso pull
+cd /home/vito/vito && sudo -u vito php artisan optimize
+systemctl restart $(systemctl list-units --type=service --no-legend | awk '/php.*fpm/{print $1}')
+```
+
 ## Test
 
 ```sh
